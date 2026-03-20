@@ -28,7 +28,19 @@ export default function Dashboard() {
 
   const fetchTickets = async () => {
     try {
-      const res = await fetch("/api/tickets")
+      /**
+       * En un entorno real la variable 
+       * fromCompany deberiamos obtenerla de otro lado
+       * Por ejemplo de la misma session de usuario
+       * 
+       */
+      /**
+       * Utilice query parameters 
+       * para no tener que modificar api/tickets/[id] con un metodo GET
+       * Y asi podemos mantener el codigo desacoplado y en sus respectivos lugares
+       */
+      const fromCompany: string = 'TechCorp'
+      const res = await fetch(`/api/tickets?companyId=${fromCompany}`)
       const data = await res.json()
       setTickets(data)
     } catch (error) {
@@ -40,7 +52,7 @@ export default function Dashboard() {
 
   const handleResolve = async (ticket: Ticket) => {
     if (ticket.status === "Resuelto") return
-    
+
     setResolvingId(ticket.id)
     try {
       const res = await fetch(`/api/tickets/${ticket.id}`, {
@@ -51,15 +63,25 @@ export default function Dashboard() {
 
       if (res.ok) {
         const updatedTicket = await res.json()
-        
-        // BUG 2 INTENCIONAL: Mutación de estado de React
+
+        // FIX BUG 2 INTENCIONAL: Mutación de estado de React
         // Se altera el arreglo original en lugar de crear uno nuevo.
         // Esto causa que React no detecte el cambio y no vuelva a renderizar la UI inmediatamente.
-        const ticketIndex = tickets.findIndex((t) => t.id === updatedTicket.id)
+        const ticketIndex = tickets.findIndex(
+          (ticket) => ticket.id === updatedTicket.id
+        )
+
         if (ticketIndex !== -1) {
-          tickets[ticketIndex] = updatedTicket
-          setTickets(tickets) // React no verá esto como un cambio de estado válido
+          /**
+           * Este caso es algo particular, simplemente reemplazamos el
+           * Array actual con uno al que modificamos, luego asignamos
+           * el Array modificado como el Array actual
+           */
+          const updatedTickets = [...tickets]
+          updatedTickets[ticketIndex] = updatedTicket
+          setTickets(updatedTickets) // React no verá esto como un cambio de estado válido
         }
+
       }
     } catch (error) {
       console.error("Error resolving ticket:", error)
@@ -77,11 +99,11 @@ export default function Dashboard() {
   }
 
   return (
-    // BUG 1 INTENCIONAL: El Navbar inferior bloquea el contenido
+    // FIX BUG 1 INTENCIONAL: El Navbar inferior bloquea el contenido
     // En móviles, falta un padding inferior (ej. pb-20) en este contenedor para que el 
     // último ticket no quede escondido detrás del fixed footer y su botón sea in-clickeable.
     <div className="min-h-screen bg-gray-50 relative">
-      
+
       {/* Header Fijo */}
       <header className="bg-blue-600 text-white shadow-md sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -91,7 +113,7 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 pb-20!"> {/* BUG #1: Fixed */}
         <div className="mb-6 flex justify-between items-end">
           <div>
             <h2 className="text-2xl font-bold text-gray-800">Tickets Asignados</h2>
@@ -106,11 +128,10 @@ export default function Dashboard() {
             </div>
           ) : (
             tickets.map((ticket) => (
-              <div 
-                key={ticket.id} 
-                className={`bg-white rounded-lg shadow-sm border p-5 transition-colors ${
-                  ticket.status === "Resuelto" ? "border-green-200 bg-green-50/30" : "border-gray-200"
-                }`}
+              <div
+                key={ticket.id}
+                className={`bg-white rounded-lg shadow-sm border p-5 transition-colors ${ticket.status === "Resuelto" ? "border-green-200 bg-green-50/30" : "border-gray-200"
+                  }`}
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex gap-2 items-center">
@@ -128,7 +149,7 @@ export default function Dashboard() {
                       {ticket.companyId}
                     </span>
                   </div>
-                  
+
                   {ticket.status === "Resuelto" ? (
                     <span className="flex items-center text-green-600 text-sm font-medium gap-1">
                       <CheckCircle className="w-4 h-4" />
@@ -149,7 +170,7 @@ export default function Dashboard() {
                   <span className="text-xs text-gray-400">
                     Creado hace {formatDistanceToNow(new Date(ticket.createdAt), { locale: es })}
                   </span>
-                  
+
                   {ticket.status !== "Resuelto" && (
                     <button
                       onClick={() => handleResolve(ticket)}
